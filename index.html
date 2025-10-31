@@ -34,15 +34,24 @@
   .field-err{ border-color:#f87171 !important; outline-color:#f87171 !important }
   #toast{ position:fixed; bottom:1rem; right:1rem; background:var(--secondary); color:#fff; padding:.55rem .9rem; border-radius:.5rem; opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:1000 }
   #toast.show{ opacity:1 }
-  #toast[aria-live]{ /* ensure screen readers announce */ }
   main section{ scroll-margin-top:90px }
-  /* highlight box for wizard steps */
   .focus-ring{ box-shadow:0 0 0 4px rgba(14,165,233,.35), 0 0 0 1px var(--accent) }
-  /* mobile niceties */
   @media (max-width:640px){
     .nav-wrap{ gap:.5rem }
     select[multiple]{ height:7rem }
   }
+
+  /* High-contrast mode */
+  body.high-contrast { background:#000; color:#ff0; }
+  body.high-contrast header,
+  body.high-contrast nav,
+  body.high-contrast .card { background:#000; color:#ff0; border-color:#888; }
+  body.high-contrast nav a { color:#0ff; }
+  body.high-contrast nav a:hover,
+  body.high-contrast nav a:focus-visible { color:#0ff; text-decoration:underline; }
+  body.high-contrast .btn { background:#000; color:#ff0; border-color:#888; }
+  body.high-contrast .btn-primary { background:#ff0; color:#000; border-color:#ff0; }
+  body.high-contrast .output { background:#111; border-color:#888; }
 </style>
 </head>
 <body>
@@ -50,6 +59,13 @@
   <h1 class="text-3xl font-bold">From Tools to Impact</h1>
   <p class="mt-2">Turn AI into a thinking partner, not a crutch. Pick the right tool, change the habit, show the evidence.</p>
 </header>
+
+<!-- Accessibility Bar -->
+<div id="accessibility-bar" style="display:flex;justify-content:center;gap:1rem;margin:0.5rem 0;">
+  <button onclick="adjustFont(1)" class="btn" aria-label="Increase text size">A+</button>
+  <button onclick="adjustFont(-1)" class="btn" aria-label="Decrease text size">A-</button>
+  <button onclick="toggleContrast()" class="btn" aria-pressed="false" aria-label="Toggle high contrast">High Contrast</button>
+</div>
 
 <nav aria-label="Section navigation">
   <div class="nav-wrap">
@@ -72,7 +88,7 @@
   <!-- About -->
   <section id="about" class="card" aria-labelledby="about_h">
     <h2 id="about_h" class="text-2xl font-bold mb-2">What is this place? How do I use it?</h2>
-    <p class="mb-2">This site is a do-it-now guide for teachers, leaders, and central office. Each section explains why it matters, what to type, and gives you something to copy, download, or email.</p>
+    <p class="mb-2">This site is a do-it-now guide for teachers, leaders, central office, coaches, and counselors. Each section explains why it matters, what to type, and gives you something to copy, download, or email.</p>
     <ol class="list-decimal ml-5 space-y-1 text-sm">
       <li><strong>Guided Mode:</strong> choose your role to walk through prompt → plan → data → platform → story → sprint.</li>
       <li><strong>Planner:</strong> lock the weekly habit (owner, cadence, outcome, standards/policy).</li>
@@ -91,6 +107,7 @@
       <button type="button" class="btn btn-primary" onclick="startGuided('leader')">Leader</button>
       <button type="button" class="btn btn-primary" onclick="startGuided('central')">Central Office</button>
       <button type="button" class="btn btn-primary" onclick="startGuided('coach')">SPED / EB / Coach</button>
+      <button type="button" class="btn btn-primary" onclick="startGuided('counselor')">Counselor</button>
     </div>
 
     <div id="guided-panel" class="hidden mt-4 border border-gray-200 rounded p-4">
@@ -509,6 +526,18 @@ function setCk(id, val){ if(val==null) return; document.getElementById(id).check
 function multisel(id, arr){ if(!arr) return; const el=document.getElementById(id); [...el.options].forEach(o=>o.selected = arr.includes(o.value)); }
 function showIf(id, text){ if(!text) return; const el=document.getElementById(id); el.textContent=text; el.style.display='block'; }
 
+/* -------------------------- accessibility controls -------------------------- */
+let FTI_FONT_SCALE = 1;
+function adjustFont(delta){
+  FTI_FONT_SCALE = Math.max(0.8, Math.min(1.6, +(FTI_FONT_SCALE + delta*0.1).toFixed(2)));
+  document.documentElement.style.fontSize = (16 * FTI_FONT_SCALE) + 'px';
+  try { localStorage.setItem('fti_font', FTI_FONT_SCALE); } catch(e){}
+}
+function toggleContrast(){
+  document.body.classList.toggle('high-contrast');
+  try { localStorage.setItem('fti_hc', document.body.classList.contains('high-contrast') ? '1' : '0'); } catch(e){}
+}
+
 /* -------------------------- wizard (Guided Mode) -------------------------- */
 const guidedFlows = {
   teacher: [
@@ -535,6 +564,12 @@ const guidedFlows = {
     { title:'Set growth goal', body:'Measurable, short-cycle.', focus:'#planner', hint:'#plan-outcome', sample:'+1 rubric level for 60%' },
     { title:'Sprint & artifacts', body:'Seed the 10-Day with checks.', focus:'#ten-day', hint:'#td-d1', sample:'Day 1 model; Day 3 gallery walk' },
   ],
+  counselor: [
+    { title:'Focus area', body:'Choose counseling focus (attendance, SEL, behavior, academic).', focus:'#planner', hint:'#plan-tool', sample:'SEL small groups' },
+    { title:'Touchpoint', body:'Describe weekly connection (check-ins, groups, circles).', focus:'#planner', hint:'#plan-behavior', sample:'Weekly check-ins with at-risk students' },
+    { title:'Goal', body:'What will you measure?', focus:'#planner', hint:'#plan-outcome', sample:'+10% attendance improvement' },
+    { title:'Evidence + privacy', body:'Identify data or artifacts to track while keeping confidentiality.', focus:'#planner', hint:'#plan-standard', sample:'Anonymized progress notes' }
+  ]
 };
 let gRole=null, gIdx=0;
 function startGuided(role){
@@ -544,6 +579,7 @@ function startGuided(role){
     role==='leader' ? 'Tiny routines > giant plans. Ship a cadence.' :
     role==='central' ? 'Lock a weekly habit that survives leadership churn.' :
     role==='coach' ? 'Aim for observable behavior change in small cycles.' :
+    role==='counselor' ? 'Structure your support touchpoints and evidence.' :
     'Behavior change over tool play.';
   updateGuided();
 }
@@ -814,7 +850,15 @@ function em(subject,id){ const t=document.getElementById(id).textContent; if(!t)
 
 /* --------------------------- inputs autosave hook --------------------------- */
 document.addEventListener('input', (e)=>{ if(e.target.matches('input,textarea,select')) saveState(); });
-document.addEventListener('DOMContentLoaded', loadState);
+document.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  // restore a11y prefs
+  try {
+    const f = parseFloat(localStorage.getItem('fti_font'));
+    if(!isNaN(f) && f) { FTI_FONT_SCALE = f; document.documentElement.style.fontSize = (16*f)+'px'; }
+    if(localStorage.getItem('fti_hc') === '1') document.body.classList.add('high-contrast');
+  } catch(e){}
+});
 
 /* ------------------------------ Connect links ------------------------------ */
 function openInstagram(){ window.open('https://instagram.com/cultureaintjustcupcaskes','_blank','noopener'); }
